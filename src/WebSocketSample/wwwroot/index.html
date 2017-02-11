@@ -1,0 +1,146 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css"
+          integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ"
+          crossorigin="anonymous">
+    <style>
+        .boarder {
+            border-style: solid;
+            border-color: #f00 #f00 #f00 #f00;
+            min-height: 50px;
+        }
+    </style>
+
+</head>
+
+<body style="position: absolute; width: 96%; margin: 10px;">
+
+    <form id="chat" onsubmit="return doSend();">
+        <input type="button" value="Connectar" onclick="start()" />
+        <br />
+        <input type="text" id="txt" required="" placeholder="Escreva sua mensagem" />
+        <input type="submit" value="Enviar" />
+        <input type="button" value="sair" onclick="closeSocket()" />
+
+    </form>
+    <div class="row">
+        <div class="col-sm-6"><div id="output" style="max-height: 300px; overflow-x: auto;"></div></div>
+        <div class="col-sm-6">
+            <img border="0" id="peca"
+                 draggable="true" ondragstart="drag(event)"
+                 alt="My Peca" src="https://www.iconeasy.com/icon/ico/System/Kids%20Icons/X.ico" width="50" height="50">
+            <img border="0" id="adversario" draggable="false"
+                 alt="Adversario" src="https://www.huntoffice.ie/images/T/franken-m861-03.jpg" width="50" height="50">
+            <div class="row" id="row">
+                <div class="col-md-4 boarder" position="1"> </div>
+                <div class="col-md-4 boarder" position="2"></div>
+                <div class="col-md-4 boarder" position="3"></div>
+            </div>
+            <div class="row">
+
+                <div class="col-md-4 boarder" position="4"></div>
+                <div class="col-md-4 boarder" position="5"></div>
+                <div class="col-md-4 boarder" position="6"></div>
+            </div>
+
+            <div class="row">
+
+                <div class="col-md-4 boarder" position="7"></div>
+                <div class="col-md-4 boarder" position="8"></div>
+                <div class="col-md-4 boarder" position="9"></div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js"
+            integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n"
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js"
+            integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb"
+            crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js"
+            integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn"
+            crossorigin="anonymous"></script>
+
+    <script language="javascript" type="text/javascript">
+
+        var chatSocket, tabSocket;
+
+        var uri = "ws://" + window.location.host + "/ws/chat/";
+        var uriTab = "ws://" + window.location.host + "/ws/tab/";
+        var output, peca, adversario;
+        var positionAtrribute = "position";
+        var dragableSelector = "#peca", adversarioSelector = "#adversario";
+
+        function write(s, color) {
+            var p = document.createElement("p");
+            p.innerHTML = s;
+            p.style.color = color;
+            output.appendChild(p);
+        }
+        function start() {
+            window.chatSocket = new WebSocket(uri);
+            chatSocket.onopen = function (e) { write("chat is opened " + uri); };
+            chatSocket.onclose = function (e) { write("closed", "black"); };
+            chatSocket.onmessage = function (e) { write("Received: " + e.data, "red"); };
+            chatSocket.onerror = function (e) { write("Error: " + e.data); };
+
+            tabSocket = new WebSocket(uriTab);
+            tabSocket.onopen = function (e) {
+                write("tab is opened " + uriTab);
+                console.log(e);
+            };
+            tabSocket.onclose = function (e) { write("tab is closed", "black"); };
+            tabSocket.onmessage = remoteDrag;
+            tabSocket.onerror = function (e) { write("tab with Error: " + e.data); };
+
+        }
+        function doSend() {
+
+            write("Sending: " + txt.value, "green");
+            chatSocket.send(txt.value);
+            return false;
+        }
+        function closeSocket() {
+            window.chatSocket.close(1000, "Saindo");
+        }
+        function onInit() {
+            output = document.getElementById("output");
+            peca = document.querySelector(dragableSelector);
+            adversario = document.querySelector(adversarioSelector);
+
+        }
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drag(ev) {
+            var element = ev.target.parentElement;
+            var position = element.getAttribute(positionAtrribute);
+            ev.dataTransfer.setData(positionAtrribute, position);
+        }
+        function drop(ev) {
+            ev.preventDefault();
+            peca.draggable = false;
+            ev.target.appendChild(peca.cloneNode());
+            var data = ev.target.getAttribute(positionAtrribute);
+            tabSocket.send(data);
+        }
+        function remoteDrag(event) {
+            var dest = document.querySelector("div[" + positionAtrribute + "='" + event.data + "']");
+            dest.appendChild(adversario.cloneNode());
+            peca.draggable = true;
+        }
+
+        $("div[position]").on("drop", drop);
+        $("div[position]").on("dragover", allowDrop);
+        window.onload = onInit;
+
+    </script>
+</body>
+</html>
